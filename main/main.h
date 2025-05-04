@@ -40,6 +40,10 @@
 #define LED_BRIGHTNESS       64     // 0-255 (lower is brighter for WS2812)
 #define DEBOUNCE_TIME_MS     200    // Debounce time for button in milliseconds
 
+// Display update configuration
+#define DISPLAY_UPDATE_MIN_INTERVAL_MS 50  // Minimum time between display updates (ms)
+#define DISPLAY_PARTIAL_UPDATE_ENABLED true // Enable partial screen updates to reduce flashing
+
 // Function prototypes
 void app_main(void);
 void init_gpio(void);

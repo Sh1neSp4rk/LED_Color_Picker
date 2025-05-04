@@ -354,47 +354,91 @@ void update_oled_display(uint8_t red, uint8_t green, uint8_t blue)
         return;
     }
     
-    char red_str[20], green_str[20], blue_str[20], rgb_str[20];
+    // Rate limiting to prevent excessive display updates
+    static uint32_t last_update_time = 0;
+    uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+    if ((current_time - last_update_time) < DISPLAY_UPDATE_MIN_INTERVAL_MS) {
+        return; // Skip this update if it's too soon after the last one
+    }
+    last_update_time = current_time;
     
-    // Clear previous data
-    ssd1306_clear_screen(ssd1306_dev, 0x00);
+    // Store previous values to detect changes
+    static uint8_t prev_red = 0xFF, prev_green = 0xFF, prev_blue = 0xFF;
+    static bool first_update = true;
     
-    // Format and display RGB values
-    snprintf(red_str, sizeof(red_str), "R: %3d", red);
-    snprintf(green_str, sizeof(green_str), "G: %3d", green);
-    snprintf(blue_str, sizeof(blue_str), "B: %3d", blue);
-    snprintf(rgb_str, sizeof(rgb_str), "#%02X%02X%02X", red, green, blue);
+    char red_hex[5], green_hex[5], blue_hex[5];
+    char red_val[5], green_val[5], blue_val[5];
     
-    // Title
-    ssd1306_display_string(ssd1306_dev, 0, 0, (uint8_t *)"LED Color Picker", 16, 0);
+    // Format strings for display
+    snprintf(red_hex, sizeof(red_hex), "%02X", red);       // Just the hex value without '#'
+    snprintf(green_hex, sizeof(green_hex), "%02X", green); // Just the hex value without '#'
+    snprintf(blue_hex, sizeof(blue_hex), "%02X", blue);    // Just the hex value without '#'
     
-    // RGB value in hex
-    ssd1306_display_string(ssd1306_dev, 0, 16, (uint8_t *)rgb_str, 16, 0);
+    snprintf(red_val, sizeof(red_val), "%3d", red);
+    snprintf(green_val, sizeof(green_val), "%3d", green);
+    snprintf(blue_val, sizeof(blue_val), "%3d", blue);
     
-    // Individual RGB component values - Now using the formatted strings with actual values
-    ssd1306_display_string(ssd1306_dev, 0, 32, (uint8_t *)red_str, 16, 0);
-    ssd1306_display_string(ssd1306_dev, 42, 32, (uint8_t *)green_str, 16, 0);
-    ssd1306_display_string(ssd1306_dev, 84, 32, (uint8_t *)blue_str, 16, 0);
+    // For first update, do a full refresh
+    if (first_update || !DISPLAY_PARTIAL_UPDATE_ENABLED) {
+        // Clear and redraw everything
+        ssd1306_clear_screen(ssd1306_dev, 0x00);
+        
+        // Row 1: Red
+        ssd1306_display_string(ssd1306_dev, 0, 5, (uint8_t *)"R:", 16, 0);
+        ssd1306_display_string(ssd1306_dev, 20, 5, (uint8_t *)red_hex, 16, 0);
+        ssd1306_display_string(ssd1306_dev, 80, 5, (uint8_t *)red_val, 16, 0);
+        
+        // Row 2: Green
+        ssd1306_display_string(ssd1306_dev, 0, 25, (uint8_t *)"G:", 16, 0);
+        ssd1306_display_string(ssd1306_dev, 20, 25, (uint8_t *)green_hex, 16, 0);
+        ssd1306_display_string(ssd1306_dev, 80, 25, (uint8_t *)green_val, 16, 0);
+        
+        // Row 3: Blue
+        ssd1306_display_string(ssd1306_dev, 0, 45, (uint8_t *)"B:", 16, 0);
+        ssd1306_display_string(ssd1306_dev, 20, 45, (uint8_t *)blue_hex, 16, 0);
+        ssd1306_display_string(ssd1306_dev, 80, 45, (uint8_t *)blue_val, 16, 0);
+        
+        first_update = false;
+    } else {
+        // Partial update - only update changed values
+        
+        if (red != prev_red) {
+            // Update hex value
+            ssd1306_fill_rectangle(ssd1306_dev, 20, 5, 60, 20, 0);
+            ssd1306_display_string(ssd1306_dev, 20, 5, (uint8_t *)red_hex, 16, 0);
+            
+            // Update numeric value
+            ssd1306_fill_rectangle(ssd1306_dev, 80, 5, 120, 20, 0);
+            ssd1306_display_string(ssd1306_dev, 80, 5, (uint8_t *)red_val, 16, 0);
+        }
+        
+        if (green != prev_green) {
+            // Update hex value
+            ssd1306_fill_rectangle(ssd1306_dev, 20, 25, 60, 40, 0);
+            ssd1306_display_string(ssd1306_dev, 20, 25, (uint8_t *)green_hex, 16, 0);
+            
+            // Update numeric value
+            ssd1306_fill_rectangle(ssd1306_dev, 80, 25, 120, 40, 0);
+            ssd1306_display_string(ssd1306_dev, 80, 25, (uint8_t *)green_val, 16, 0);
+        }
+        
+        if (blue != prev_blue) {
+            // Update hex value
+            ssd1306_fill_rectangle(ssd1306_dev, 20, 45, 60, 60, 0);
+            ssd1306_display_string(ssd1306_dev, 20, 45, (uint8_t *)blue_hex, 16, 0);
+            
+            // Update numeric value
+            ssd1306_fill_rectangle(ssd1306_dev, 80, 45, 120, 60, 0);
+            ssd1306_display_string(ssd1306_dev, 80, 45, (uint8_t *)blue_val, 16, 0);
+        }
+    }
     
-    // Draw color preview box
-    ssd1306_fill_rectangle(ssd1306_dev, 0, 48, 127, 63, 1);
+    // Remember current values for next time
+    prev_red = red;
+    prev_green = green;
+    prev_blue = blue;
     
-    // Create a visual bar graph for each RGB component
-    // Draw three bar graphs showing R, G, B levels
-    
-    // Red level bar (first row of bar graph)
-    uint8_t bar_width = (red * 40) / 255;
-    ssd1306_fill_rectangle(ssd1306_dev, 5, 52, 5 + bar_width, 54, 0);
-    
-    // Green level bar (second row of bar graph)
-    bar_width = (green * 40) / 255;
-    ssd1306_fill_rectangle(ssd1306_dev, 45, 52, 45 + bar_width, 54, 0);
-    
-    // Blue level bar (third row of bar graph)
-    bar_width = (blue * 40) / 255;
-    ssd1306_fill_rectangle(ssd1306_dev, 85, 52, 85 + bar_width, 54, 0);
-    
-    // Refresh the display to show all changes
+    // Refresh the display
     ssd1306_refresh_gram(ssd1306_dev);
 }
 
