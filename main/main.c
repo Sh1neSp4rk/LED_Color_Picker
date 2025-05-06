@@ -73,7 +73,7 @@ void button_task(void *pvParameter)
                 ESP_ERROR_CHECK(onboard_led->refresh(onboard_led, 100));
             }
         }
-    }
+    } 
 }
 
 // Initialize I2C
